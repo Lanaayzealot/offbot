@@ -15,10 +15,12 @@ THREAD_ID_61 = 61  # Destination thread (where message is sent)
 latest_driver_name = None
 
 async def store_driver_name(update: Update, context: CallbackContext):
-    """Capture messages from thread 59 and store the driver's name."""
+    """Capture messages from thread 59 and store the driver's name, then send the ELD request."""
     global latest_driver_name
+
     if update.message and update.message.message_thread_id == THREAD_ID_59:
         latest_driver_name = update.message.text.strip()  # Store the name
+        await send_eld_pause_request(context)  # Send the message immediately
 
 async def send_eld_pause_request(context: CallbackContext):
     """Send message to thread ID 61."""
@@ -43,7 +45,7 @@ async def main():
     global application
     application = Application.builder().token(TOKEN).build()
 
-    # Register message handler for thread 59
+    # Register message handler for thread 59 (Driver Names)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, store_driver_name))
 
     # Start bot polling
