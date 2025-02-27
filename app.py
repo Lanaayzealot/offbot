@@ -1,120 +1,139 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 import logging
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler, CallbackContext
+)
 
-# Telegram Bot Token
 TOKEN = "7001677306:AAEJAEzCghnWuhPrOwebvivD789BXn-6wm4"
-
-# Thread IDs
-SOURCE_THREAD_ID = 6  # Fetch requests from this thread
-TARGET_THREAD_ID = 2  # Send ELD turn-off messages to this thread
-CHAT_ID = "-1002351667124"  # Replace with your group chat ID
-
-# Configure logging
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+CHAT_ID = "-1002351667124"  # Your group chat ID
+FETCH_THREAD_ID = 6  # Topic where users request time-off
+SEND_THREAD_ID = 2  # Topic to send ELD turn-off request
 
 # Conversation states
-NAME, DATE, REASON = range(3)
+NAME, DATE_FROM, DATE_TILL, REASON = range(4)
 
-def start(update: Update, context: CallbackContext):
-    """Initiate the off request conversation."""
-    update.message.reply_text("🚗 OFF REQUEST FORM 🚗\n\n🔹 Please enter your Full Name:")
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+
+async def start(update: Update, context: CallbackContext):
+    """Start the time-off request process."""
+    await update.message.reply_text("🚗 OFF REQUEST FORM 🚗\n\n🔹 Please enter your Full Name:")
     return NAME
 
-def get_name(update: Update, context: CallbackContext):
-    """Store the user's name and ask for the date off."""
-    context.user_data["name"] = update.message.text
-    update.message.reply_text("🔹 Enter your Date Off (MM/DD/YYYY):")
-    return DATE
 
-def get_date(update: Update, context: CallbackContext):
-    """Store the date off and ask for the reason."""
-    context.user_data["date"] = update.message.text
-    update.message.reply_text("🔹 Enter the Reason:")
+async def get_name(update: Update, context: CallbackContext):
+    """Store the user's name and ask for the time-off start date."""
+    context.user_data["name"] = update.message.text
+    await update.message.reply_text("🔹 Enter your Date Off (From) (MM/DD/YYYY):")
+    return DATE_FROM
+
+
+async def get_date_from(update: Update, context: CallbackContext):
+    """Store the start date and ask for the end date."""
+    context.user_data["date_from"] = update.message.text
+    await update.message.reply_text("🔹 Enter your Date Off (Till) (MM/DD/YYYY):")
+    return DATE_TILL
+
+
+async def get_date_till(update: Update, context: CallbackContext):
+    """Store the end date and ask for the reason."""
+    context.user_data["date_till"] = update.message.text
+    await update.message.reply_text("🔹 Enter the Reason for your time-off:")
     return REASON
 
-def get_reason(update: Update, context: CallbackContext):
-    """Store the reason and send the request."""
+
+async def get_reason(update: Update, context: CallbackContext):
+    """Store the reason, check if more than a week, and send the request."""
     context.user_data["reason"] = update.message.text
     name = context.user_data["name"]
-    date = context.user_data["date"]
+    date_from = context.user_data["date_from"]
+    date_till = context.user_data["date_till"]
     reason = context.user_data["reason"]
 
-    # Time-off request summary
-    summary = (
-        f"✅ OFF REQUEST SUMMARY ✅\n\n"
+    # Prepare the message
+    message = (
+        f"🚗 TIME-OFF REQUEST 🚗\n\n"
         f"🔹 Name: {name}\n"
-        f"🔹 Date Off: {date}\n"
-        f"🔹 Reason: {reason}\n"
-    )
-    
-    # Send confirmation to user
-    update.message.reply_text(summary)
-
-    # Forward ELD Turn-Off Notification to Topic ID 2
-    eld_message = (
-        f"⚠️ **TURN OFF ELD** ⚠️\n\n"
-        f"🔹 Name: {name}\n"
-        f"🔹 Date Off: {date}\n"
-        f"🔹 Reason: {reason}\n"
-        f"🔹 Action Required: Turn off ELD for this user."
+        f"🔹 Date Off: From {date_from} Till {date_till}\n"
+        f"🔹 Reason: {reason}"
     )
 
-    context.bot.send_message(chat_id=CHAT_ID, message_thread_id=TARGET_THREAD_ID, text=eld_message)
+    # Send message to the request topic (Thread ID 6)
+    await send_telegram_message(FETCH_THREAD_ID, message)
 
-    return ConversationHandler.END
+    # Check if requested period is more than 7 days
+    from datetime import datetime
 
-def cancel(update: Update, context: CallbackContext):
-    """Handle cancellation of the form."""
-    update.message.reply_text("❌ Form Canceled.")
-    return ConversationHandler.END
+    try:
+        date_format = "%m/%d/%Y"
+        start_date = datetime.strptime(date_from, date_format)
+        end_date = datetime.strptime(date_till, date_format)
+        delta = (end_date - start_date).days
 
-def handle_topic_messages(update: Update, context: CallbackContext):
-    """Fetch messages from thread ID 6 and process them."""
-    if update.message.message_thread_id == SOURCE_THREAD_ID:
-        text = update.message.text
-        if "Date Off:" in text and "Name:" in text:
-            # Extract name, date, and reason (Basic parsing)
-            lines = text.split("\n")
-            name = lines[1].split(": ")[1] if len(lines) > 1 else "Unknown"
-            date = lines[2].split(": ")[1] if len(lines) > 2 else "Unknown"
-            reason = lines[3].split(": ")[1] if len(lines) > 3 else "Unknown"
-
-            # Send ELD Turn-Off Notification
+        if delta > 7:
             eld_message = (
-                f"⚠️ **TURN OFF ELD** ⚠️\n\n"
+                f"🔴 ELD PAUSE REQUEST 🔴\n\n"
                 f"🔹 Name: {name}\n"
-                f"🔹 Date Off: {date}\n"
+                f"🔹 Date Off: {date_from} - {date_till}\n"
                 f"🔹 Reason: {reason}\n"
-                f"🔹 Action Required: Turn off ELD for this user."
+                f"⚠️ Requested period exceeds 7 days. Pause ELD needed!"
             )
 
-            context.bot.send_message(chat_id=CHAT_ID, message_thread_id=TARGET_THREAD_ID, text=eld_message)
+            # Send message to the ELD topic (Thread ID 2)
+            await send_telegram_message(SEND_THREAD_ID, eld_message)
+    except Exception as e:
+        logger.error(f"Date parsing error: {e}")
+
+    await update.message.reply_text("✅ Your request has been submitted.")
+    return ConversationHandler.END
+
+
+async def send_telegram_message(thread_id, message):
+    """Send a message to a specific Telegram topic thread."""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    params = {
+        "chat_id": CHAT_ID,
+        "message_thread_id": thread_id,
+        "text": message,
+    }
+    
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as response:
+            result = await response.json()
+            if not result.get("ok"):
+                logger.error(f"Failed to send message: {result}")
+
+
+async def cancel(update: Update, context: CallbackContext):
+    """Cancel the conversation."""
+    await update.message.reply_text("❌ Form Canceled.")
+    return ConversationHandler.END
+
 
 def main():
-    """Main function to start the bot."""
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    """Start the bot."""
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    # Conversation handler for user input
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            NAME: [MessageHandler(Filters.text & ~Filters.command, get_name)],
-            DATE: [MessageHandler(Filters.text & ~Filters.command, get_date)],
-            REASON: [MessageHandler(Filters.text & ~Filters.command, get_reason)],
+            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
+            DATE_FROM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date_from)],
+            DATE_TILL: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date_till)],
+            REASON: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_reason)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)]
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    dp.add_handler(conv_handler)
+    app.add_handler(conv_handler)
 
-    # Listen for messages in thread ID 6 and process them
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_topic_messages))
+    app.run_polling()
 
-    # Start polling
-    updater.start_polling()
-    updater.idle()
 
 if __name__ == "__main__":
     main()
