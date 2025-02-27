@@ -5,12 +5,8 @@ app = Flask(__name__)
 
 # Replace with your actual bot token and chat ID
 TELEGRAM_BOT_TOKEN = "7001677306:AAEJAEzCghnWuhPrOwebvivD789BXn-6wm4"
-CHAT_ID = " 2351667124"  # Your group chat ID
+CHAT_ID = "2351667124"  # Your group chat ID
 TOPIC_ID = 6  # Replace with your actual topic ID
-
-# Replace with your actual bot token and chat ID
-TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN"
-CHAT_ID = "YOUR_GROUP_CHAT_ID"
 
 @app.route('/submit', methods=['POST'])
 def submit_form():
