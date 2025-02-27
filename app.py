@@ -8,8 +8,8 @@ app = Flask(__name__)
 # Define the Telegram bot token
 TOKEN = "7001677306:AAEJAEzCghnWuhPrOwebvivD789BXn-6wm4"
 GROUP_CHAT_ID = "-1002351667124"  # Replace with your Telegram group chat ID
-THREAD_ID_6 = 2  # The thread ID from which you want to grab the driver's full name
-THREAD_ID_2 = 6  # The thread ID to send the message to
+THREAD_ID_59 = 59  # The thread ID from which you want to grab the driver's full name
+THREAD_ID_61 = 61  # The thread ID to send the message to
 LABEL = "[Label]"
 
 # Function to get the driver's full name from the thread
