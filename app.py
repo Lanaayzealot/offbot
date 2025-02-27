@@ -15,7 +15,7 @@ LABEL = "[Label]"
 # Function to get the driver's full name from the thread
 async def get_driver_full_name(update: Update, context: CallbackContext):
     # Retrieve the thread ID 6 messages
-    messages = await update.message.chat.get_messages(thread_id=THREAD_ID_6)
+    messages = await update.message.chat.get_messages(thread_id=THREAD_ID_59)
     
     # Loop through messages in the thread to find the full name
     for message in messages:
@@ -29,13 +29,13 @@ async def get_driver_full_name(update: Update, context: CallbackContext):
 # Function to send message asking to pause ELD
 async def ask_to_pause_eld(driver_full_name, context: CallbackContext):
     if driver_full_name:
-        # Compose the message to send to thread ID 2
+        # Compose the message to send to thread ID 61
         message_text = f"Please pause the ELD for {driver_full_name}."
         await context.bot.send_message(
             chat_id=GROUP_CHAT_ID,
             text=message_text,
             reply_to_message_id=None,
-            message_thread_id=THREAD_ID_2
+            message_thread_id=THREAD_ID_61
         )
 
 # Flask route to handle incoming webhook requests
