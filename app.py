@@ -33,4 +33,35 @@ async def ask_to_pause_eld(driver_full_name, context: CallbackContext):
         message_text = f"Please pause the ELD for {driver_full_name}."
         await context.bot.send_message(
             chat_id=GROUP_CHAT_ID,
-            text=
+            text=message_text,
+            reply_to_message_id=None,
+            message_thread_id=THREAD_ID_2
+        )
+
+# Flask route to handle incoming webhook requests
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    # Process the incoming update
+    json_str = request.get_data().decode('UTF-8')
+    update = Update.de_json(json_str, bot)
+    application.process_update(update)
+
+    return "OK", 200
+
+# Main function to start the bot
+async def main():
+    application = Application.builder().token(TOKEN).build()
+
+    # Register handlers for different commands and messages
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, label_message))
+
+    # Start the bot
+    await application.run_polling()
+
+# Flask entry point to start the server
+if __name__ == '__main__':
+    # Ensure that the bot is running alongside the Flask app
+    import asyncio
+    asyncio.run(main())
+    app.run(host='0.0.0.0', port=5000)
